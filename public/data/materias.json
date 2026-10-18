@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "nombre": "Programación Web",
+    "clave": "ISC-301",
+    "semestre": 5,
+    "docente": "Mtra. Ana López",
+    "horario": "Lun y Mié 9:00–11:00",
+    "salon": "Laboratorio 2",
+    "creditos": 5,
+    "temas": ["HTML y CSS", "JavaScript", "APIs REST", "Progressive Web Apps"],
+    "autor": "Integrante 1"
+  },
+  {
+    "id": 2,
+    "nombre": "Bases de Datos",
+    "clave": "ISC-204",
+    "semestre": 4,
+    "docente": "Dr. Luis Ramírez",
+    "horario": "Mar y Jue 11:00–13:00",
+    "salon": "Aula 14",
+    "creditos": 5,
+    "temas": ["Modelo entidad-relación", "SQL", "Normalización", "Transacciones"],
+    "autor": "Integrante 2"
+  },
+  {
+    "id": 3,
+    "nombre": "Redes de Computadoras",
+    "clave": "ISC-305",
+    "semestre": 5,
+    "docente": "Ing. Marta Pérez",
+    "horario": "Vie 8:00–12:00",
+    "salon": "Laboratorio 1",
+    "creditos": 4,
+    "temas": ["Modelo OSI", "Direccionamiento IP", "Enrutamiento", "Seguridad básica"],
+    "autor": "Integrante 3"
+  },
+  {
+    "id": 4,
+    "nombre": "Cálculo Diferencial",
+    "clave": "ACF-101",
+    "semestre": 1,
+    "docente": "M. en C. Jorge Díaz",
+    "horario": "Lun a Jue 7:00–8:00",
+    "salon": "Aula 3",
+    "creditos": 5,
+    "temas": ["Funciones", "Límites", "Derivadas", "Aplicaciones de la derivada"],
+    "autor": "Integrante 4"
+  }
+]

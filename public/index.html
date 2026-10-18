@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consulta Académica PWA</title>
+  <meta name="theme-color" content="#1d4ed8">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="cargando">
+
+  <!-- ===== SPLASH SCREEN ===== -->
+  <div id="splash" class="splash" role="status" aria-live="polite">
+    <img src="icons/icon-192.png" alt="" class="splash-logo" width="96" height="96">
+    <h1 class="splash-titulo">Consulta Académica</h1>
+    <p class="splash-sub">Materias, horarios y docentes · disponible sin conexión</p>
+    <div class="splash-spinner" aria-hidden="true"></div>
+    <p id="splash-estado" class="splash-estado">Iniciando…</p>
+  </div>
+
+  <header class="encabezado">
+    <button id="btn-menu" class="btn-menu" aria-label="Abrir menú" aria-expanded="false">☰</button>
+    <h1>Consulta Académica</h1>
+    <span id="badge-pendientes" class="badge-pendientes" hidden title="Registros pendientes de enviar">0</span>
+    <span id="estado-red" class="estado-red" role="status">En línea</span>
+  </header>
+
+  <nav id="menu" class="menu" aria-label="Menú principal">
+    <a href="#inicio" data-vista="inicio">Inicio</a>
+    <a href="#materias" data-vista="materias">Materias</a>
+    <a href="#agregar" data-vista="agregar">Agregar materia</a>
+    <a href="#avisos" data-vista="avisos">Avisos</a>
+  </nav>
+
+  <main id="principal" class="principal">
+
+    <!-- ===== HOME SCREEN ===== -->
+    <section id="vista-inicio" class="vista" data-vista="inicio" hidden>
+      <h2>Bienvenido</h2>
+      <p>Consulta tus materias, horarios, docentes y temas, y regístralas aun sin conexión: se enviarán al servidor cuando vuelva internet.</p>
+
+      <div class="panel-estado" aria-label="Estado de la aplicación">
+        <div class="dato-estado"><strong id="st-total">0</strong><span>Materias</span></div>
+        <div class="dato-estado"><strong id="st-pendientes">0</strong><span>Pendientes de envío</span></div>
+        <div class="dato-estado"><strong id="st-red">-</strong><span>Conexión</span></div>
+        <div class="dato-estado"><strong id="st-fuente">-</strong><span>Fuente de datos</span></div>
+      </div>
+      <p class="resumen">Última sincronización: <span id="st-ultima">nunca</span></p>
+      <p id="resumen" class="resumen"></p>
+
+      <div class="acciones">
+        <button class="boton" data-ir="materias">Ver materias</button>
+        <button class="boton secundario" data-ir="agregar">Agregar materia</button>
+        <button id="btn-sync" class="boton secundario">Sincronizar ahora</button>
+      </div>
+    </section>
+
+    <section id="vista-materias" class="vista" data-vista="materias" hidden>
+      <h2>Materias</h2>
+      <label class="filtro">Buscar (materia, clave o docente)
+        <input id="buscar" type="search" placeholder="Ej. redes, ISC-301, López">
+      </label>
+      <label class="filtro">Semestre
+        <select id="filtro-semestre">
+          <option value="">Todos</option>
+        </select>
+      </label>
+      <div id="lista-materias" class="lista"></div>
+    </section>
+
+    <section id="vista-agregar" class="vista" data-vista="agregar" hidden>
+      <h2>Agregar materia</h2>
+      <p class="resumen">Se guarda primero en este dispositivo (IndexedDB) y luego se envía al servidor.</p>
+      <form id="form-materia" class="formulario">
+        <label>Materia <input name="nombre" required></label>
+        <label>Clave <input name="clave" required></label>
+        <label>Semestre <input name="semestre" type="number" min="1" max="12" value="1" required></label>
+        <label>Docente <input name="docente" required></label>
+        <label>Horario <input name="horario" placeholder="Ej. Lun y Mié 9:00–11:00" required></label>
+        <label>Salón <input name="salon" required></label>
+        <label>Créditos <input name="creditos" type="number" min="1" max="12" value="5" required></label>
+        <label>Temas (separados por coma) <textarea name="temas" rows="2" required></textarea></label>
+        <label>Aportada por (integrante) <input name="autor" required></label>
+        <button id="btn-guardar" class="boton" type="submit">Guardar materia</button>
+      </form>
+    </section>
+
+    <section id="vista-avisos" class="vista" data-vista="avisos" hidden>
+      <h2>Avisos</h2>
+      <p>Permiso de notificaciones: <strong id="permiso-estado">-</strong></p>
+      <button id="btn-permiso" class="boton">Activar notificaciones</button>
+      <hr>
+      <h3>Recordatorio de clase</h3>
+      <p>Elige una materia y te avisamos con una notificación cuando pase el tiempo indicado.</p>
+      <label class="filtro">Materia
+        <select id="rec-materia"></select>
+      </label>
+      <label class="filtro">Avisar en (minutos)
+        <input id="rec-minutos" type="number" min="1" value="1">
+      </label>
+      <button id="btn-recordatorio" class="boton">Programar recordatorio</button>
+      <p id="rec-estado" class="resumen"></p>
+    </section>
+
+  </main>
+
+  <nav class="nav-inferior" aria-label="Navegación rápida">
+    <a href="#inicio" data-vista="inicio"><span>Inicio</span></a>
+    <a href="#materias" data-vista="materias"><span>Materias</span></a>
+    <a href="#agregar" data-vista="agregar"><span>Agregar</span></a>
+    <a href="#avisos" data-vista="avisos"><span>Avisos</span></a>
+  </nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <footer class="pie">
+    Consulta Académica PWA · v2 · <span id="anio"></span>
+  </footer>
+
+  <script src="db.js"></script>
+  <script src="sync.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

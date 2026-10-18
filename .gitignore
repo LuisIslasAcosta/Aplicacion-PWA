@@ -1,0 +1,5 @@
+server/db.json
+__pycache__/
+*.pyc
+.venv/
+tests/resultados/
