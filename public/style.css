@@ -195,3 +195,16 @@ body.cargando { overflow: hidden; }
 
 .toast { width: max-content; }
 .encabezado h1 { font-size: 1.05rem; }
+
+/* ===== Actividad 10: actualización, conexión y ubicación ===== */
+.banner-actualizacion {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: #dbeafe; color: #1e3a8a; padding: 8px 14px; font-size: .9rem;
+}
+.banner-actualizacion[hidden] { display: none; }
+.banner-actualizacion .boton { padding: 6px 12px; }
+[data-requiere-conexion].sin-red { opacity: .55; cursor: not-allowed; }
+.ubicacion-campo { border: 1px solid #d6d3d1; border-radius: 8px; padding: 10px 12px; margin: 4px 0; }
+.ubicacion-campo legend { font-weight: 600; padding: 0 6px; }
+.enlace-mapa { font-size: .85rem; margin-left: 6px; }
+.enlace-mapa.sin-red { opacity: .55; cursor: not-allowed; text-decoration: line-through; }

@@ -1,4 +1,4 @@
-"""Pruebas end-to-end de la PWA (Actividad 08) con Playwright + Chromium.
+"""Pruebas end-to-end de la PWA (Actividades 08 y 10) con Playwright + Chromium.
 
 Uso:  python3 tests/e2e.py
 Genera: docs/capturas/*.png  y  tests/resultados/resultados.md|json
@@ -269,6 +269,125 @@ try:
             ctx2.close()
         finally:
             estatico.terminate()
+
+
+        # ============================================================
+        # ACTIVIDAD 10: Service Worker, offline, notificaciones y geolocalización
+        # ============================================================
+        def abrir(ctx):
+            pg = ctx.new_page()
+            pg.goto(BASE)
+            pg.wait_for_selector("#splash", state="hidden", timeout=8000)
+            pg.wait_for_function("navigator.serviceWorker.controller !== null", timeout=8000)
+            return pg
+
+        # ===== A1. Registro del Service Worker =====
+        info_sw = page.evaluate("""async () => {
+            const r = await navigator.serviceWorker.getRegistration();
+            return { activo: !!(r && r.active), estado: r && r.active ? r.active.state : null,
+                     alcance: r ? r.scope : null, controla: !!navigator.serviceWorker.controller };
+        }""")
+        prueba("A1", "La aplicación registra correctamente el Service Worker",
+               info_sw["activo"] and info_sw["estado"] == "activated" and info_sw["controla"],
+               f"estado={info_sw['estado']}; alcance={info_sw['alcance']}")
+
+        # ===== A2. Recursos esenciales en caché y disponibles sin conexión =====
+        esenciales = ["index.html", "style.css", "db.js", "sync.js", "ubicacion.js", "app.js", "manifest.json", "icons/icon-192.png"]
+        faltan = page.evaluate("""async (lista) => {
+            const claves = await caches.keys();
+            const shell = claves.find(k => k.startsWith('consulta-shell-'));
+            if (!shell) return lista;
+            const c = await caches.open(shell);
+            const f = [];
+            for (const r of lista) { if (!(await c.match(r))) f.push(r); }
+            return f;
+        }""", esenciales)
+        sin_red(contexto, True)
+        page.goto(f"{BASE}/#inicio")
+        page.reload()
+        page.wait_for_selector("#splash", state="hidden", timeout=8000)
+        interfaz_offline = page.is_visible("#vista-inicio") and page.inner_text("#estado-red") == "Sin conexión"
+        # ===== A3. Aviso de función que necesita conexión =====
+        page.click("#btn-sync")
+        page.wait_for_selector("#toast:not([hidden])", timeout=3000)
+        aviso = page.inner_text("#toast")
+        page.screenshot(path=str(CAPTURAS / "11-aviso-requiere-conexion.png"))
+        prueba("A2", "Los recursos esenciales se cargan después de activar el modo sin conexión",
+               not faltan and interfaz_offline, f"faltan en caché={faltan}; interfaz offline={interfaz_offline}")
+        prueba("A3", "La aplicación informa adecuadamente cuando una función necesita conexión",
+               "necesita conexión" in aviso, f"aviso='{aviso}'")
+        sin_red(contexto, False)
+
+        # ===== A4. Notificación tras conceder el permiso =====
+        ctx_ok = navegador.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, locale="es-MX",
+                                       permissions=["notifications", "geolocation"],
+                                       geolocation={"latitude": 19.282704, "longitude": -99.655700, "accuracy": 20})
+        pg = abrir(ctx_ok)
+        pg.goto(f"{BASE}/#avisos")
+        permiso = pg.evaluate("Notification.permission")
+        pg.click("#btn-prueba-notif")
+        pg.wait_for_function("navigator.serviceWorker.ready.then(r => r.getNotifications()).then(n => n.length > 0)", timeout=5000)
+        titulos = pg.evaluate("navigator.serviceWorker.ready.then(r => r.getNotifications()).then(l => l.map(n => n.title))")
+        pg.screenshot(path=str(CAPTURAS / "07-avisos-permisos.png"))
+        prueba("A4", "La notificación se muestra después de conceder el permiso correspondiente",
+               permiso == "granted" and "Notificación de prueba" in titulos, f"permiso={permiso}; notificaciones={titulos}")
+
+        # ===== A5. Geolocalización con permiso =====
+        pg.goto(f"{BASE}/#agregar")
+        for campo, valor in (("nombre", "Computo Movil"), ("clave", "ISC-500"), ("docente", "Ing. Geo"),
+                             ("horario", "Mar 9:00–11:00"), ("salon", "Aula 3"), ("temas", "GPS, Sensores"), ("autor", "QA")):
+            pg.fill(f"[name={campo}]", valor)
+        pg.click("#btn-ubicacion")
+        pg.wait_for_function("document.getElementById('ubicacion-estado').textContent.includes('capturada')", timeout=12000)
+        texto_ubic = pg.inner_text("#ubicacion-estado")
+        pg.screenshot(path=str(CAPTURAS / "08-ubicacion-capturada.png"))
+        pg.click("#btn-guardar")
+        pg.wait_for_selector(".tarjeta[data-uid]")
+        pg.wait_for_function("document.getElementById('badge-pendientes').hidden", timeout=15000)
+        pg.locator(".tarjeta", has_text="Computo Movil").scroll_into_view_if_needed()
+        tarjeta_ubic = pg.locator(".tarjeta", has_text="Computo Movil").inner_text()
+        pg.screenshot(path=str(CAPTURAS / "09-materia-con-ubicacion.png"))
+        guardada = [m for m in registradas() if m["clave"] == "ISC-500"]
+        coords_ok = bool(guardada) and abs(guardada[0].get("ubicacion", {}).get("lat", 0) - 19.282704) < 1e-5
+        prueba("A5", "La característica del dispositivo (geolocalización) funciona con los permisos autorizados",
+               "19.28270" in texto_ubic and "19.28270" in tarjeta_ubic and coords_ok,
+               f"{texto_ubic}; servidor={guardada[0].get('ubicacion') if guardada else None}")
+
+        # ===== A6. Enlace de mapa sin conexión =====
+        sin_red(ctx_ok, True)
+        pg.reload()
+        pg.wait_for_selector("#splash", state="hidden", timeout=8000)
+        pg.goto(f"{BASE}/#materias")
+        pg.wait_for_selector(".enlace-mapa")
+        pg.locator(".enlace-mapa").first.click()
+        pg.wait_for_selector("#toast:not([hidden])", timeout=3000)
+        aviso_mapa = pg.inner_text("#toast")
+        prueba("A6", "«Ver en mapa» (requiere internet) explica que necesita conexión y no abre el enlace sin red",
+               "necesita conexión" in aviso_mapa and len(pg.context.pages) == 1, f"aviso='{aviso_mapa}'")
+        sin_red(ctx_ok, False)
+        ctx_ok.close()
+
+        # ===== A7. Permisos denegados: mensajes claros, sin errores =====
+        ctx_no = navegador.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, locale="es-MX")
+        ctx_no.grant_permissions([], origin=BASE)
+        pg2 = abrir(ctx_no)
+        pg2.goto(f"{BASE}/#agregar")
+        pg2.click("#btn-ubicacion")
+        pg2.wait_for_function("!document.getElementById('btn-ubicacion').disabled", timeout=12000)
+        msg_denegada = pg2.inner_text("#ubicacion-estado")
+        pg2.screenshot(path=str(CAPTURAS / "12-ubicacion-denegada.png"))
+        prueba("A7", "Si el usuario niega la ubicación, la app muestra un mensaje claro y el formulario sigue funcionando",
+               ("denegado" in msg_denegada or "No se pudo" in msg_denegada) and pg2.is_enabled("#btn-guardar"),
+               f"mensaje='{msg_denegada}'")
+        ctx_no.close()
+
+        # ===== A8. Servidor valida la ubicación =====
+        base_m = {"uid": "geo-prueba-001", "nombre": "Geo", "clave": "G-1", "semestre": 1, "docente": "D", "horario": "H",
+                  "salon": "S", "creditos": 3, "temas": ["a"], "autor": "QA"}
+        c_malo, _ = api("/api/materias", {**base_m, "ubicacion": {"lat": 200, "lon": 0}})
+        c_bueno, _ = api("/api/materias", {**base_m, "uid": "geo-prueba-002", "ubicacion": {"lat": 19.28, "lon": -99.65, "precision": 15}})
+        prueba("A8", "El servidor rechaza coordenadas fuera de rango y acepta coordenadas válidas",
+               c_malo == 400 and c_bueno == 201, f"fuera de rango -> HTTP {c_malo}; válidas -> HTTP {c_bueno}")
 
         prueba("P9", "Sin errores de JavaScript no controlados durante las pruebas", not errores_consola, "; ".join(errores_consola))
         navegador.close()

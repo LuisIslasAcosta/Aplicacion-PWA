@@ -1,4 +1,4 @@
-"""Servidor de Consulta Académica PWA (Actividad 08).
+"""Servidor de Consulta Académica PWA (Actividades 08 y 10).
 
 - Sirve la PWA estática desde ../public
 - API REST:
@@ -54,6 +54,28 @@ def catalogo_base():
     return datos
 
 
+def validar_ubicacion(u):
+    """Devuelve (ubicacion_limpia, error). lat/lon obligatorios y en rango; precision opcional."""
+    if not isinstance(u, dict):
+        return None, "ubicacion inválida"
+    try:
+        lat, lon = float(u.get("lat")), float(u.get("lon"))
+    except (TypeError, ValueError):
+        return None, "ubicacion: lat y lon deben ser numéricos"
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None, "ubicacion: lat/lon fuera de rango"
+    limpia = {"lat": round(lat, 6), "lon": round(lon, 6)}
+    try:
+        precision = u.get("precision")
+        if precision is not None:
+            limpia["precision"] = max(0, int(precision))
+    except (TypeError, ValueError):
+        return None, "ubicacion: precision inválida"
+    if isinstance(u.get("tomadoEn"), str):
+        limpia["tomadoEn"] = u["tomadoEn"][:40]
+    return limpia, None
+
+
 def validar(d):
     """Devuelve (materia_limpia, error)."""
     if not isinstance(d, dict):
@@ -79,6 +101,12 @@ def validar(d):
     if not isinstance(temas, list) or not temas:
         return None, "temas debe ser una lista no vacía"
     limpia["temas"] = [str(t).strip()[:100] for t in temas if str(t).strip()][:30]
+    ubicacion = d.get("ubicacion")
+    if ubicacion is not None:  # opcional: coordenadas capturadas con la geolocalización del dispositivo
+        limpia_u, error_u = validar_ubicacion(ubicacion)
+        if error_u:
+            return None, error_u
+        limpia["ubicacion"] = limpia_u
     limpia["creadoEn"] = d.get("creadoEn") if isinstance(d.get("creadoEn"), str) else None
     return limpia, None
 

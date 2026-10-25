@@ -1,7 +1,7 @@
-// ===== Service Worker - Consulta Académica PWA (v2) =====
+// ===== Service Worker - Consulta Académica PWA (v3, Actividad 10) =====
 importScripts("db.js", "sync.js");
 
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE_SHELL = `consulta-shell-${VERSION}`;
 const CACHE_DATOS = `consulta-datos-${VERSION}`;
 
@@ -12,6 +12,7 @@ const RECURSOS_SHELL = [
   "./style.css",
   "./db.js",
   "./sync.js",
+  "./ubicacion.js",
   "./app.js",
   "./manifest.json",
   "./icons/icon-192.png",
@@ -19,15 +20,24 @@ const RECURSOS_SHELL = [
   "./data/materias.json"
 ];
 
+// INSTALACIÓN: se precachea el app shell. NO se llama a skipWaiting() aquí: si ya había una
+// versión anterior, la nueva queda "en espera" hasta que el usuario acepte actualizar
+// (mensaje SKIP_WAITING desde la página), así no se cambia la app a mitad de un registro.
 self.addEventListener("install", evento => {
+  console.log("[SW] Instalando", VERSION);
   evento.waitUntil(
-    caches.open(CACHE_SHELL)
-      .then(cache => cache.addAll(RECURSOS_SHELL))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_SHELL).then(cache => cache.addAll(RECURSOS_SHELL))
   );
 });
 
+// ACTUALIZACIÓN: la página pide activar la versión en espera
+self.addEventListener("message", evento => {
+  if (evento.data && evento.data.tipo === "SKIP_WAITING") self.skipWaiting();
+});
+
+// ACTIVACIÓN: se borran las cachés de versiones anteriores y se toma el control de las pestañas
 self.addEventListener("activate", evento => {
+  console.log("[SW] Activando", VERSION);
   evento.waitUntil(
     caches.keys()
       .then(claves => Promise.all(
@@ -91,6 +101,16 @@ self.addEventListener("sync", evento => {
     self.Sync.sincronizar().then(async resultado => {
       const ventanas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       ventanas.forEach(v => v.postMessage({ tipo: "sync-terminada", resultado }));
+      // Si nadie está viendo la app, se avisa con una notificación (solo con permiso concedido)
+      const visible = ventanas.some(v => v.visibilityState === "visible");
+      const total = (resultado.enviados || 0) + (resultado.duplicados || 0);
+      if (total && !visible && self.Notification && Notification.permission === "granted") {
+        await self.registration.showNotification("Materias sincronizadas", {
+          body: `Se enviaron ${total} materia(s) al servidor.`,
+          icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: "consulta-sync",
+          data: { url: "./index.html#materias" }
+        });
+      }
       if (resultado.sinConexion || resultado.fallidos) throw new Error("reintentar"); // el navegador reprograma
     })
   );

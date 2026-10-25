@@ -1,4 +1,4 @@
-// ===== Consulta Académica PWA - lógica de la aplicación (v2) =====
+// ===== Consulta Académica PWA - lógica de la aplicación (v3, Actividad 10) =====
 // Cliente: validación, uid, renderizado, filtros, almacenamiento local, cola offline.
 // Servidor (Flask): catálogo base, persistencia, deduplicación por uid.
 
@@ -14,20 +14,54 @@ let temporizadorReintento = null;
 const $ = id => document.getElementById(id);
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
-// ---------- 1. Service Worker ----------
+// ---------- 1. Service Worker (registro, actualización) ----------
+// Ciclo de vida: install (precache) -> waiting (si ya había versión) -> activate (limpia cachés).
+// Cuando hay una versión nueva en espera se muestra un aviso y el usuario decide cuándo actualizar.
+let recargandoPorActualizacion = false;
+
+function mostrarBannerActualizacion(trabajador) {
+  $("banner-actualizacion").hidden = false;
+  $("btn-actualizar").onclick = () => trabajador.postMessage({ tipo: "SKIP_WAITING" });
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
       const registro = await navigator.serviceWorker.register("sw.js");
       console.log("[PWA] Service Worker registrado. Alcance:", registro.scope);
+
+      // ¿Ya había una versión nueva esperando al abrir la app?
+      if (registro.waiting && navigator.serviceWorker.controller) mostrarBannerActualizacion(registro.waiting);
+
+      // Se encontró una versión nueva mientras la app está abierta
+      registro.addEventListener("updatefound", () => {
+        const nuevo = registro.installing;
+        nuevo.addEventListener("statechange", () => {
+          if (nuevo.state === "installed" && navigator.serviceWorker.controller) mostrarBannerActualizacion(nuevo);
+        });
+      });
+
+      // Buscar actualizaciones al volver a la app (requiere conexión; si no hay, se ignora)
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && navigator.onLine) registro.update().catch(() => {});
+      });
     } catch (error) {
       console.error("[PWA] Error al registrar el Service Worker:", error);
+      mostrarAviso("No se pudo activar el modo sin conexión en este navegador.");
     }
+  });
+  // Al activarse la versión nueva se recarga una sola vez para usar los archivos nuevos
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (recargandoPorActualizacion || !document.body.dataset.conSw) return;
+    recargandoPorActualizacion = true;
+    location.reload();
   });
   // El SW (Background Sync) avisa cuando terminó de reenviar la cola
   navigator.serviceWorker.addEventListener("message", e => {
     if (e.data && e.data.tipo === "sync-terminada") refrescar();
   });
+  // Solo recargar por "controllerchange" si la página ya tenía un SW (no en la primera instalación)
+  if (navigator.serviceWorker.controller) document.body.dataset.conSw = "1";
 }
 
 // ---------- 2. Navegación (App Shell) ----------
@@ -58,6 +92,29 @@ function actualizarRed() {
   $("estado-red").textContent = enLinea ? "En línea" : "Sin conexión";
   $("estado-red").classList.toggle("offline", !enLinea);
   $("st-red").textContent = enLinea ? "En línea" : "Sin conexión";
+  actualizarControlesConexion();
+}
+
+// Funciones que necesitan internet: se ven atenuadas y, al pulsarlas, explican por qué no funcionan.
+function actualizarControlesConexion() {
+  document.querySelectorAll("[data-requiere-conexion]").forEach(el => {
+    el.classList.toggle("sin-red", !navigator.onLine);
+    el.setAttribute("aria-disabled", String(!navigator.onLine));
+    el.title = navigator.onLine ? "" : "Requiere conexión a internet";
+  });
+}
+
+// Enlaces que necesitan internet (p. ej. "Ver en mapa"): sin red no se abren y se explica por qué
+document.addEventListener("click", e => {
+  const el = e.target.closest("a[data-requiere-conexion]");
+  if (el && !navigator.onLine) { e.preventDefault(); requiereConexion(el.dataset.requiereConexion); }
+});
+
+// Devuelve true si hay conexión; si no, avisa qué función no está disponible.
+function requiereConexion(nombreFuncion) {
+  if (navigator.onLine) return true;
+  mostrarAviso(`«${nombreFuncion}» necesita conexión a internet. Inténtalo cuando estés en línea.`);
+  return false;
 }
 window.addEventListener("online", () => {
   actualizarRed();
@@ -175,7 +232,10 @@ async function pedirBackgroundSync() {
     if ("sync" in reg) await reg.sync.register("sync-materias");
   } catch { /* no soportado: se usa el reintento al reconectar */ }
 }
-$("btn-sync").addEventListener("click", () => sincronizar({ origen: "manual", incluirErrores: true }));
+$("btn-sync").addEventListener("click", () => {
+  if (!requiereConexion("Sincronizar ahora")) return;
+  sincronizar({ origen: "manual", incluirErrores: true });
+});
 
 // ---------- 7. Render ----------
 function escapar(texto) {
@@ -230,6 +290,8 @@ function pintarMaterias() {
       ${etiquetaEstado(m)}
       <p class="dato">👤 ${escapar(m.docente)}</p>
       <p class="dato">🕘 ${escapar(m.horario)} · ${escapar(m.salon)}</p>
+      ${m.ubicacion ? `<p class="dato">📍 ${Number(m.ubicacion.lat).toFixed(5)}, ${Number(m.ubicacion.lon).toFixed(5)} (±${Number(m.ubicacion.precision) || "?"} m)
+        <a class="enlace-mapa${navigator.onLine ? "" : " sin-red"}" data-requiere-conexion="Ver en mapa" href="${escapar(Ubicacion.enlaceMapa(m.ubicacion))}" target="_blank" rel="noopener">Ver en mapa</a></p>` : ""}
       <details>
         <summary>Ver temas</summary>
         <ul>${(m.temas || []).map(t => `<li>${escapar(t)}</li>`).join("")}</ul>
@@ -239,6 +301,7 @@ function pintarMaterias() {
 
   const autores = new Set(materias.map(m => m.autor));
   $("resumen").textContent = `${materias.length} materias registradas por ${autores.size} integrantes.`;
+  actualizarControlesConexion();
 }
 
 async function actualizarEstado() {
@@ -256,6 +319,33 @@ async function actualizarEstado() {
 
 $("filtro-semestre").addEventListener("change", pintarMaterias);
 $("buscar").addEventListener("input", pintarMaterias);
+
+// ---------- 8a. Ubicación del salón (geolocalización) ----------
+let ubicacionActual = null; // { lat, lon, precision, tomadoEn } o null
+
+$("btn-ubicacion").addEventListener("click", async () => {
+  const boton = $("btn-ubicacion");
+  boton.disabled = true;
+  $("ubicacion-estado").textContent = "Solicitando ubicación… acepta el permiso del navegador.";
+  try {
+    ubicacionActual = await Ubicacion.obtener();
+    $("ubicacion-estado").textContent =
+      `Ubicación capturada: ${ubicacionActual.lat}, ${ubicacionActual.lon} (precisión ±${ubicacionActual.precision} m).`;
+    $("btn-quitar-ubicacion").hidden = false;
+  } catch (error) {
+    ubicacionActual = null;
+    $("ubicacion-estado").textContent = error.message;
+  } finally {
+    boton.disabled = false;
+    actualizarPermisos();
+  }
+});
+
+$("btn-quitar-ubicacion").addEventListener("click", () => {
+  ubicacionActual = null;
+  $("ubicacion-estado").textContent = "Ubicación descartada.";
+  $("btn-quitar-ubicacion").hidden = true;
+});
 
 // ---------- 8. Registro de materias (funciona sin conexión) ----------
 $("form-materia").addEventListener("submit", async e => {
@@ -279,8 +369,12 @@ $("form-materia").addEventListener("submit", async e => {
       creadoEn: new Date().toISOString(),
       estado: "pendiente"
     };
+    if (ubicacionActual) nueva.ubicacion = ubicacionActual;
     await Almacen.guardar(nueva);            // 1) siempre primero en local
     e.target.reset();
+    ubicacionActual = null;
+    $("ubicacion-estado").textContent = "";
+    $("btn-quitar-ubicacion").hidden = true;
     await refrescar();
     location.hash = "materias";
     pedirBackgroundSync();
@@ -309,6 +403,22 @@ function actualizarPermiso() {
   const textos = { granted: "concedido", denied: "denegado", default: "sin decidir" };
   $("permiso-estado").textContent = textos[Notification.permission];
 }
+
+async function actualizarPermisos() {
+  actualizarPermiso();
+  const textos = { granted: "concedido", denied: "denegado", prompt: "sin decidir", desconocido: "sin decidir",
+    "no-soportada": "no soportada", inseguro: "requiere HTTPS" };
+  $("permiso-ubicacion").textContent = textos[await Ubicacion.estadoPermiso()] || "sin decidir";
+}
+
+$("btn-prueba-notif").addEventListener("click", async () => {
+  if (!("Notification" in window)) return mostrarAviso("Este navegador no soporta notificaciones.");
+  if (Notification.permission === "default") { await Notification.requestPermission(); actualizarPermiso(); }
+  if (Notification.permission !== "granted") {
+    return mostrarAviso("Las notificaciones están bloqueadas. Actívalas en la configuración del sitio.");
+  }
+  notificar("Notificación de prueba", "Si ves este aviso, las notificaciones funcionan.");
+});
 
 $("btn-permiso").addEventListener("click", async () => {
   if (!("Notification" in window)) return;
@@ -362,7 +472,7 @@ async function iniciar() {
   const inicio = performance.now();
   $("anio").textContent = new Date().getFullYear();
   actualizarRed();
-  actualizarPermiso();
+  actualizarPermisos();
   mostrarVista();
   try {
     $("splash-estado").textContent = "Abriendo almacenamiento local…";

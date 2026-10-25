@@ -28,6 +28,11 @@
     <span id="estado-red" class="estado-red" role="status">En línea</span>
   </header>
 
+  <div id="banner-actualizacion" class="banner-actualizacion" role="alert" hidden>
+    <span>Hay una nueva versión de la app disponible.</span>
+    <button id="btn-actualizar" class="boton" type="button">Actualizar</button>
+  </div>
+
   <nav id="menu" class="menu" aria-label="Menú principal">
     <a href="#inicio" data-vista="inicio">Inicio</a>
     <a href="#materias" data-vista="materias">Materias</a>
@@ -54,7 +59,7 @@
       <div class="acciones">
         <button class="boton" data-ir="materias">Ver materias</button>
         <button class="boton secundario" data-ir="agregar">Agregar materia</button>
-        <button id="btn-sync" class="boton secundario">Sincronizar ahora</button>
+        <button id="btn-sync" class="boton secundario" data-requiere-conexion="Sincronizar">Sincronizar ahora</button>
       </div>
     </section>
 
@@ -84,6 +89,14 @@
         <label>Créditos <input name="creditos" type="number" min="1" max="12" value="5" required></label>
         <label>Temas (separados por coma) <textarea name="temas" rows="2" required></textarea></label>
         <label>Aportada por (integrante) <input name="autor" required></label>
+
+        <fieldset class="ubicacion-campo">
+          <legend>Ubicación del salón (opcional)</legend>
+          <p class="resumen">Al pulsar el botón el navegador te pedirá permiso para usar tu ubicación. Solo se usa para guardar las coordenadas de esta materia; no se envía a terceros.</p>
+          <button id="btn-ubicacion" class="boton secundario" type="button">📍 Usar mi ubicación</button>
+          <button id="btn-quitar-ubicacion" class="boton secundario" type="button" hidden>Quitar</button>
+          <p id="ubicacion-estado" class="resumen" role="status" aria-live="polite"></p>
+        </fieldset>
         <button id="btn-guardar" class="boton" type="submit">Guardar materia</button>
       </form>
     </section>
@@ -91,7 +104,9 @@
     <section id="vista-avisos" class="vista" data-vista="avisos" hidden>
       <h2>Avisos</h2>
       <p>Permiso de notificaciones: <strong id="permiso-estado">-</strong></p>
+      <p>Permiso de ubicación: <strong id="permiso-ubicacion">-</strong></p>
       <button id="btn-permiso" class="boton">Activar notificaciones</button>
+      <button id="btn-prueba-notif" class="boton secundario">Enviar notificación de prueba</button>
       <hr>
       <h3>Recordatorio de clase</h3>
       <p>Elige una materia y te avisamos con una notificación cuando pase el tiempo indicado.</p>
@@ -117,11 +132,12 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <footer class="pie">
-    Consulta Académica PWA · v2 · <span id="anio"></span>
+    Consulta Académica PWA · v3 · <span id="anio"></span>
   </footer>
 
   <script src="db.js"></script>
   <script src="sync.js"></script>
+  <script src="ubicacion.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
