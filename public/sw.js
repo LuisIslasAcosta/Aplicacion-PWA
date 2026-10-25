@@ -1,7 +1,7 @@
 // ===== Service Worker - Consulta Académica PWA (v3, Actividad 10) =====
 importScripts("db.js", "sync.js");
 
-const VERSION = "v4";
+const VERSION = "v5";
 const CACHE_SHELL = `consulta-shell-${VERSION}`;
 const CACHE_DATOS = `consulta-datos-${VERSION}`;
 
