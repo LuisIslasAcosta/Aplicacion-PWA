@@ -12,7 +12,7 @@
 
 (function (global) {
   const DB_NOMBRE = "consulta-academica";
-  const DB_VERSION = 2; // v2 (Actividad 12): se agrega el almacén "tareas"
+  const DB_VERSION = 1; // v2 (Actividad 12): se agrega el almacén "tareas"
   let conexion = null;
 
   function abrir() {
