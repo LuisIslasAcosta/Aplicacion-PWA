@@ -1,7 +1,7 @@
-// ===== Service Worker - Consulta Académica PWA (v3, Actividad 10) =====
+// ===== Service Worker - Consulta Académica PWA (v6, Actividad 14) =====
 importScripts("db.js", "sync.js");
 
-const VERSION = "v5";
+const VERSION = "v6";
 const CACHE_SHELL = `consulta-shell-${VERSION}`;
 const CACHE_DATOS = `consulta-datos-${VERSION}`;
 
@@ -13,6 +13,7 @@ const RECURSOS_SHELL = [
   "./db.js",
   "./sync.js",
   "./ubicacion.js",
+  "./tareas.js",
   "./app.js",
   "./manifest.json",
   "./icons/icon-192.png",
@@ -105,8 +106,8 @@ self.addEventListener("sync", evento => {
       const visible = ventanas.some(v => v.visibilityState === "visible");
       const total = (resultado.enviados || 0) + (resultado.duplicados || 0);
       if (total && !visible && self.Notification && Notification.permission === "granted") {
-        await self.registration.showNotification("Materias sincronizadas", {
-          body: `Se enviaron ${total} materia(s) al servidor.`,
+        await self.registration.showNotification("Datos sincronizados", {
+          body: `Se enviaron ${total} registro(s) al servidor.`,
           icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: "consulta-sync",
           data: { url: "./index.html#materias" }
         });

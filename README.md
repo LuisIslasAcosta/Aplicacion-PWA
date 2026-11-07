@@ -1,4 +1,4 @@
-# Consulta Académica PWA (Actividades 08 y 10)
+# Consulta Académica PWA (Actividades 08, 10 y 12)
 
 PWA para consultar materias, horarios y docentes. Permite **registrar materias sin conexión**
 (IndexedDB) y las **sincroniza con un servidor Flask** al recuperar internet, sin duplicar registros.
@@ -12,6 +12,20 @@ PWA para consultar materias, horarios y docentes. Permite **registrar materias s
 | Notificaciones | `public/app.js`, `public/sw.js` | Notificación local con `registration.showNotification()` (botón de prueba, recordatorio de clase, materia guardada) y notificación desde el SW al terminar una sincronización en segundo plano. Pide permiso al usuario. |
 | Geolocalización | `public/ubicacion.js` | Botón «📍 Usar mi ubicación» en *Agregar materia*; guarda `lat/lon/precisión` y la envía al servidor (se valida en `server/app.py`). Requiere HTTPS o `localhost`. |
 | Diagrama | `docs/diagrama-arquitectura-v3.png` | Componentes implementados. |
+
+## Módulo de tareas (Actividad 12, v4)
+Pantalla **Tareas** (`#tareas`) y formulario (`#tarea`) para crear y editar tareas con fecha límite, ubicación opcional y avisos locales.
+
+| Requerimiento | Dónde | Cómo funciona |
+|---|---|---|
+| 1. Registro y almacenamiento local | `public/tareas.js`, `public/db.js` | Formulario crear/editar. IndexedDB v2 (almacén `tareas`, la v1 se migra sin perder datos). Indicador de conexión en el encabezado y en la pantalla. |
+| 2. Funcionamiento offline | `public/sw.js` (caché v5), `public/sync.js`, `server/app.py` | Shell en caché, tareas consultables sin red. Cada cambio queda `sync = pendiente` y se envía a `POST /api/tareas` al reconectar. Sin duplicados: `uid` + confirmación del servidor; gana la última edición (`actualizadoEn`). |
+| 3. Geolocalización | `public/ubicacion.js`, `public/tareas.js` | Botón «Usar mi ubicación» (pide permiso al pulsarlo). Si se niega, la tarea se guarda sin ubicación. |
+| 4. Avisos | `public/tareas.js`, `public/app.js` | Aviso local al registrar/editar y al consultar una tarea pendiente; aviso al abrir la app si hay tareas vencidas o que vencen hoy (una vez al día). **Sin temporizadores**: no se promete ningún aviso con la página cerrada. |
+
+Pruebas: `python3 tests/api_tareas.py` (API, sin navegador) y `python3 tests/e2e.py` (T1–T10 en Chromium, además de P y A).
+Ampliación **no implementada**: notificaciones programadas o push reales (requieren suscripción Push API, claves VAPID y un servicio de envío).
+Limitaciones: las tareas son compartidas (no hay inicio de sesión), la fecha límite es solo fecha (sin hora) y el servidor guarda en `server/tareas.json`.
 
 ## Ejecutar
 ```bash
@@ -27,7 +41,7 @@ Para probar sin conexión: DevTools → Application → Service Workers → *Off
 ## Pruebas automatizadas
 ```bash
 pip install playwright && playwright install chromium
-python3 tests/e2e.py           # genera docs/capturas/*.png y tests/resultados/ (pruebas P1-P10 y A1-A8)
+python3 tests/e2e.py           # genera docs/capturas/*.png y tests/resultados/ (pruebas P1-P10, A1-A8 y T1-T10)
 ```
 
 ## Estructura

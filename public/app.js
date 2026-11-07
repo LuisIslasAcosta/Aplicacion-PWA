@@ -1,4 +1,4 @@
-// ===== Consulta Académica PWA - lógica de la aplicación (v3, Actividad 10) =====
+// ===== Consulta Académica PWA - lógica de la aplicación (v4, Actividad 12) =====
 // Cliente: validación, uid, renderizado, filtros, almacenamiento local, cola offline.
 // Servidor (Flask): catálogo base, persistencia, deduplicación por uid.
 
@@ -72,7 +72,8 @@ function mostrarVista() {
   const nombre = location.hash.replace("#", "") || "inicio";
   document.querySelectorAll(".vista").forEach(v => { v.hidden = v.dataset.vista !== nombre; });
   document.querySelectorAll("[data-vista].activo").forEach(a => a.classList.remove("activo"));
-  document.querySelectorAll(`a[data-vista="${nombre}"]`).forEach(a => a.classList.add("activo"));
+  const activa = nombre === "tarea" ? "tareas" : nombre; // el formulario pertenece a Tareas
+  document.querySelectorAll(`a[data-vista="${activa}"]`).forEach(a => a.classList.add("activo"));
   menu.classList.remove("abierto");
   btnMenu.setAttribute("aria-expanded", "false");
 }
@@ -93,6 +94,7 @@ function actualizarRed() {
   $("estado-red").classList.toggle("offline", !enLinea);
   $("st-red").textContent = enLinea ? "En línea" : "Sin conexión";
   actualizarControlesConexion();
+  Tareas.pintarEstado();
 }
 
 // Funciones que necesitan internet: se ven atenuadas y, al pulsarlas, explican por qué no funcionan.
@@ -123,7 +125,7 @@ window.addEventListener("online", () => {
 });
 window.addEventListener("offline", () => {
   actualizarRed();
-  mostrarAviso("Sin conexión. Puedes seguir registrando materias.");
+  mostrarAviso("Sin conexión. Puedes seguir registrando materias y tareas.");
 });
 
 // ---------- 4. Avisos en pantalla ----------
@@ -156,6 +158,7 @@ async function migrarLocalStorage() {
 async function refrescar() {
   materias = (await Almacen.todas()).sort((a, b) =>
     (a.creadoEn || "").localeCompare(b.creadoEn || "") || a.uid.localeCompare(b.uid));
+  await Tareas.cargar();
   actualizarListas();
   await actualizarEstado();
 }
@@ -209,7 +212,7 @@ async function sincronizar({ origen = "manual", incluirErrores = false } = {}) {
         : "No se pudo contactar al servidor. Se reintentará automáticamente.");
     } else {
       esperaReintento = 5000;
-      if (enviados) mostrarAviso(`Sincronizadas ${enviados} materia(s) con el servidor.`);
+      if (enviados) mostrarAviso(`Sincronizado(s) ${enviados} registro(s) con el servidor.`);
       else if (origen === "manual") mostrarAviso(r.rechazados ? "El servidor rechazó algún registro." : "No hay registros pendientes.");
     }
     return r;
@@ -305,7 +308,7 @@ function pintarMaterias() {
 }
 
 async function actualizarEstado() {
-  const pendientes = materias.filter(m => m.estado === "pendiente").length;
+  const pendientes = materias.filter(m => m.estado === "pendiente").length + Tareas.contarSync();
   const errores = materias.filter(m => m.estado === "error").length;
   $("st-total").textContent = materias.length;
   $("st-pendientes").textContent = pendientes + (errores ? ` (+${errores} con error)` : "");
@@ -429,11 +432,11 @@ $("btn-permiso").addEventListener("click", async () => {
   }
 });
 
-async function notificar(titulo, cuerpo) {
+async function notificar(titulo, cuerpo, destino = "./index.html#materias", etiqueta = "consulta-academica") {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   const opciones = {
     body: cuerpo, icon: "icons/icon-192.png", badge: "icons/icon-192.png",
-    tag: "consulta-academica", data: { url: "./index.html#materias" }
+    tag: etiqueta, data: { url: destino }
   };
   try {
     const registro = await navigator.serviceWorker.ready;
@@ -471,6 +474,7 @@ function ocultarSplash() {
 async function iniciar() {
   const inicio = performance.now();
   $("anio").textContent = new Date().getFullYear();
+  Tareas.montar();
   actualizarRed();
   actualizarPermisos();
   mostrarVista();
@@ -480,6 +484,7 @@ async function iniciar() {
     await refrescar();
     $("splash-estado").textContent = "Cargando catálogo de materias…";
     await descargarCatalogo();
+    await Tareas.descargarRemotas();
     await refrescar();
     $("splash-estado").textContent = "Listo";
   } catch (error) {
@@ -489,5 +494,6 @@ async function iniciar() {
   await pausa(Math.max(0, MIN_SPLASH_MS - (performance.now() - inicio)));
   ocultarSplash();
   if (navigator.onLine) sincronizar({ origen: "arranque" });
+  Tareas.avisarVencimientos(); // aviso local si hay tareas vencidas o que vencen hoy (sin temporizadores)
 }
 iniciar();

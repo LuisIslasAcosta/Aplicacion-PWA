@@ -1,4 +1,4 @@
-"""Pruebas end-to-end de la PWA (Actividades 08 y 10) con Playwright + Chromium.
+"""Pruebas end-to-end de la PWA (Actividades 08, 10 y 12) con Playwright + Chromium.
 
 Uso:  python3 tests/e2e.py
 Genera: docs/capturas/*.png  y  tests/resultados/resultados.md|json
@@ -75,7 +75,8 @@ servidor = None
 def arrancar_servidor():
     global servidor
     servidor = subprocess.Popen([sys.executable, str(RAIZ / "server" / "app.py")],
-                                env={**os.environ, "PORT": str(PUERTO), "MATERIAS_DB": str(db_tmp)},
+                                env={**os.environ, "PORT": str(PUERTO), "MATERIAS_DB": str(db_tmp),
+                                     "TAREAS_DB": str(db_tmp.parent / "tareas.json")},
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(50):
         try:
@@ -181,7 +182,7 @@ try:
             pass
         if not automatica:  # respaldo: botón manual
             page.goto(f"{BASE}/#inicio")
-            page.click("#btn-sync")
+            page.click("#btn-sync", force=True)
             page.wait_for_function("document.getElementById('badge-pendientes').hidden", timeout=8000)
         en_servidor = registradas()
         prueba("P5", "Los pendientes se envían al servidor al recuperar la conectividad",
@@ -210,7 +211,7 @@ try:
         page.unroute("**/api/materias")
         # (b) Reintento manual: mismo uid -> el servidor responde duplicado
         page.goto(f"{BASE}/#inicio")
-        page.click("#btn-sync")
+        page.click("#btn-sync", force=True)
         page.wait_for_function("document.getElementById('badge-pendientes').hidden", timeout=8000)
         despues = [m for m in registradas() if m["clave"] == "ISC-402"]
         # (c) Reintentos simultáneos desde la página con el mismo uid
@@ -308,7 +309,7 @@ try:
         page.wait_for_selector("#splash", state="hidden", timeout=8000)
         interfaz_offline = page.is_visible("#vista-inicio") and page.inner_text("#estado-red") == "Sin conexión"
         # ===== A3. Aviso de función que necesita conexión =====
-        page.click("#btn-sync")
+        page.click("#btn-sync", force=True)
         page.wait_for_selector("#toast:not([hidden])", timeout=3000)
         aviso = page.inner_text("#toast")
         page.screenshot(path=str(CAPTURAS / "11-aviso-requiere-conexion.png"))
@@ -319,14 +320,16 @@ try:
         sin_red(contexto, False)
 
         # ===== A4. Notificación tras conceder el permiso =====
-        ctx_ok = navegador.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, locale="es-MX",
+        # El headless clásico de Chromium siempre niega Notification; el modo «chromium» (headless nuevo) sí concede el permiso
+        navegador_notif = pw.chromium.launch(channel="chromium")
+        ctx_ok = navegador_notif.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, locale="es-MX",
                                        permissions=["notifications", "geolocation"],
                                        geolocation={"latitude": 19.282704, "longitude": -99.655700, "accuracy": 20})
         pg = abrir(ctx_ok)
         pg.goto(f"{BASE}/#avisos")
         permiso = pg.evaluate("Notification.permission")
         pg.click("#btn-prueba-notif")
-        pg.wait_for_function("navigator.serviceWorker.ready.then(r => r.getNotifications()).then(n => n.length > 0)", timeout=5000)
+        pg.wait_for_function("async () => (await (await navigator.serviceWorker.ready).getNotifications()).length > 0", timeout=5000)
         titulos = pg.evaluate("navigator.serviceWorker.ready.then(r => r.getNotifications()).then(l => l.map(n => n.title))")
         pg.screenshot(path=str(CAPTURAS / "07-avisos-permisos.png"))
         prueba("A4", "La notificación se muestra después de conceder el permiso correspondiente",
@@ -359,7 +362,7 @@ try:
         pg.wait_for_selector("#splash", state="hidden", timeout=8000)
         pg.goto(f"{BASE}/#materias")
         pg.wait_for_selector(".enlace-mapa")
-        pg.locator(".enlace-mapa").first.click()
+        pg.locator(".enlace-mapa").first.click(force=True)
         pg.wait_for_selector("#toast:not([hidden])", timeout=3000)
         aviso_mapa = pg.inner_text("#toast")
         prueba("A6", "«Ver en mapa» (requiere internet) explica que necesita conexión y no abre el enlace sin red",
@@ -389,8 +392,159 @@ try:
         prueba("A8", "El servidor rechaza coordenadas fuera de rango y acepta coordenadas válidas",
                c_malo == 400 and c_bueno == 201, f"fuera de rango -> HTTP {c_malo}; válidas -> HTTP {c_bueno}")
 
+
+        # ============================================================
+        # ACTIVIDAD 12: módulo de tareas con ubicación y avisos (T1-T9)
+        # ============================================================
+        hoy = time.strftime("%Y-%m-%d")
+
+        def tareas_srv():
+            return api("/api/tareas")[1]
+
+        def esperar_tarjeta(pg, titulo, texto=None):
+            pg.wait_for_function(
+                "([t, x]) => [...document.querySelectorAll('#lista-tareas .tarea')].some(e => e.textContent.includes(t) && (!x || e.textContent.includes(x)))",
+                arg=[titulo, texto], timeout=15000)
+
+        def nueva_tarea(pg, titulo, fecha, con_ubicacion=False, guardar=True):
+            pg.goto(f"{BASE}/#tareas")
+            pg.click("#btn-nueva-tarea")
+            pg.fill("#form-tarea [name=titulo]", titulo)
+            pg.fill("#form-tarea [name=descripcion]", "Creada por la prueba automática")
+            pg.fill("#form-tarea [name=fechaLimite]", fecha)
+            if con_ubicacion:
+                pg.click("#btn-tarea-ubicacion")
+                pg.wait_for_function("document.getElementById('tarea-ubicacion-estado').textContent.includes('capturada')", timeout=12000)
+            if guardar:
+                pg.click("#btn-guardar-tarea")
+                esperar_tarjeta(pg, titulo)
+
+        def titulos_aviso(pg):
+            return pg.evaluate("navigator.serviceWorker.ready.then(r => r.getNotifications()).then(l => l.map(n => n.title))")
+
+        ctx_t = navegador_notif.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, locale="es-MX",
+                                      permissions=["notifications", "geolocation"],
+                                      geolocation={"latitude": 19.282704, "longitude": -99.655700, "accuracy": 20})
+        pt = abrir(ctx_t)
+
+        # ===== T1 + T5 + T7. Registrar con conexión, geolocalización autorizada y aviso local =====
+        pt.goto(f"{BASE}/#tareas")
+        pt.click("#btn-nueva-tarea")
+        pt.fill("#form-tarea [name=titulo]", "Entregar reporte final")
+        pt.fill("#form-tarea [name=descripcion]", "Subir el documento técnico a Classroom")
+        pt.fill("#form-tarea [name=fechaLimite]", hoy)
+        pt.click("#btn-tarea-ubicacion")
+        pt.wait_for_function("document.getElementById('tarea-ubicacion-estado').textContent.includes('capturada')", timeout=12000)
+        texto_ub = pt.inner_text("#tarea-ubicacion-estado")
+        pt.screenshot(path=str(CAPTURAS / "20-tarea-formulario.png"))
+        pt.click("#btn-guardar-tarea")
+        esperar_tarjeta(pt, "Entregar reporte final", "Sincronizada")
+        pt.wait_for_function("async () => (await (await navigator.serviceWorker.ready).getNotifications()).some(n => n.title === \'Tarea registrada\')", timeout=8000)
+        avisos1 = titulos_aviso(pt)
+        pt.screenshot(path=str(CAPTURAS / "21-tareas-listado-online.png"))
+        en_srv = [t for t in tareas_srv() if t["titulo"] == "Entregar reporte final"]
+        prueba("T1", "Registrar una tarea con conexión: aparece en el listado y llega al servidor",
+               len(en_srv) == 1, f"servidor={len(en_srv)} tarea(s)")
+        prueba("T5", "Autorizar la geolocalización: se obtiene y registra la ubicación",
+               "19.282704" in texto_ub and bool(en_srv) and abs(en_srv[0].get("ubicacion", {}).get("lat", 0) - 19.282704) < 1e-5,
+               f"{texto_ub}; servidor={en_srv[0].get('ubicacion') if en_srv else None}")
+        prueba("T7", "Activar un aviso local: se muestra tras contar con el permiso correspondiente",
+               "Tarea registrada" in avisos1, f"permiso={pt.evaluate('Notification.permission')}; avisos={avisos1}")
+
+        # ===== T9. Consultar una tarea pendiente muestra un aviso local =====
+        pt.locator(".tarea", has_text="Entregar reporte final").locator("[data-accion=ver]").click()
+        pt.wait_for_function("async () => (await (await navigator.serviceWorker.ready).getNotifications()).some(n => n.title === \'Tarea pendiente\')", timeout=8000)
+        detalle_visible = pt.locator(".tarea", has_text="Entregar reporte final").locator(".detalle-tarea").is_visible()
+        prueba("T9", "Consultar una tarea pendiente muestra su detalle y un aviso local",
+               detalle_visible and "Tarea pendiente" in titulos_aviso(pt), f"detalle visible={detalle_visible}")
+
+        # ===== T2. Registrar sin conexión: queda guardada localmente =====
+        sin_red(ctx_t, True)
+        pt.reload()
+        pt.wait_for_selector("#splash", state="hidden", timeout=8000)
+        nueva_tarea(pt, "Practicar sin red", "2099-12-31")
+        tarjeta = pt.locator(".tarea", has_text="Practicar sin red").inner_text()
+        indicador = pt.inner_text("#tareas-estado")
+        pt.screenshot(path=str(CAPTURAS / "22-tarea-offline-pendiente.png"))
+        prueba("T2", "Registrar una tarea sin conexión: queda guardada localmente como pendiente de envío",
+               "Pendiente de envío" in tarjeta and "Sin conexión" in indicador, f"{indicador}")
+
+        # ===== T3. Cerrar y abrir la aplicación sin conexión =====
+        pt.close()
+        pt2 = ctx_t.new_page()
+        pt2.goto(BASE)
+        pt2.wait_for_selector("#splash", state="hidden", timeout=8000)
+        pt2.goto(f"{BASE}/#tareas")
+        n_tarjetas = pt2.locator("#lista-tareas .tarea").count()
+        textos = pt2.inner_text("#lista-tareas")
+        pt2.screenshot(path=str(CAPTURAS / "23-tareas-reabiertas-offline.png"))
+        prueba("T3", "Cerrar y abrir la aplicación sin conexión: las tareas almacenadas siguen disponibles",
+               n_tarjetas >= 2 and "Entregar reporte final" in textos and "Practicar sin red" in textos, f"tarjetas={n_tarjetas}")
+
+        # ===== T4. Recuperar la conexión: se sincronizan los cambios pendientes =====
+        sin_red(ctx_t, False)
+        sincronizada = False
+        try:
+            pt2.wait_for_function("document.getElementById('badge-pendientes').hidden", timeout=15000)
+            sincronizada = True
+        except Exception:
+            pass
+        if not sincronizada:  # respaldo: botón manual
+            pt2.goto(f"{BASE}/#inicio")
+            pt2.click("#btn-sync", force=True)
+            pt2.wait_for_function("document.getElementById('badge-pendientes').hidden", timeout=8000)
+        copias = [t for t in tareas_srv() if t["titulo"] == "Practicar sin red"]
+        pt2.goto(f"{BASE}/#tareas")
+        pt2.screenshot(path=str(CAPTURAS / "24-tarea-sincronizada.png"))
+        prueba("T4", "Recuperar la conexión: los cambios pendientes se sincronizan sin duplicados",
+               len(copias) == 1, f"copias en el servidor={len(copias)}")
+
+        # ===== T8. Editar una tarea: se actualiza sin crear otra =====
+        total_antes = len(tareas_srv())
+        pt2.locator(".tarea", has_text="Practicar sin red").locator("[data-accion=editar]").click()
+        pt2.fill("#form-tarea [name=titulo]", "Practicar sin red (editada)")
+        pt2.click("#btn-guardar-tarea")
+        esperar_tarjeta(pt2, "Practicar sin red (editada)", "Sincronizada")
+        remotas = tareas_srv()
+        prueba("T8", "Editar una tarea: se actualiza en el servidor sin crear otra",
+               len(remotas) == total_antes and any(t["titulo"] == "Practicar sin red (editada)" for t in remotas),
+               f"antes={total_antes}, después={len(remotas)}")
+
+        # ===== T10. Aviso por vencimiento al abrir la app (sin temporizadores) =====
+        # El aviso sale una sola vez al día y ya se consumió al abrir la app antes: se reinicia la marca y se
+        # limpian los avisos mostrados para comprobar que al abrir de nuevo vuelve a generarse el aviso.
+        pt2.evaluate("async () => { await Almacen.escribirMeta('avisoVencimiento', ''); "
+                     "(await (await navigator.serviceWorker.ready).getNotifications()).forEach(n => n.close()); }")
+        pt2.reload()
+        pt2.wait_for_selector("#splash", state="hidden", timeout=8000)
+        pt2.wait_for_function("async () => (await (await navigator.serviceWorker.ready).getNotifications()).some(n => n.title === 'Tareas por atender')", timeout=8000)
+        prueba("T10", "Al abrir la app se avisa de las tareas vencidas o que vencen hoy",
+               "Tareas por atender" in titulos_aviso(pt2), f"avisos={titulos_aviso(pt2)}")
+        ctx_t.close()
+
+        # ===== T6. Denegar la geolocalización: se puede registrar sin ubicación =====
+        ctx_d = navegador.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, locale="es-MX")
+        ctx_d.grant_permissions([], origin=BASE)
+        pd = abrir(ctx_d)
+        pd.goto(f"{BASE}/#tareas")
+        pd.click("#btn-nueva-tarea")
+        pd.fill("#form-tarea [name=titulo]", "Tarea sin ubicación")
+        pd.fill("#form-tarea [name=fechaLimite]", "2099-06-30")
+        pd.click("#btn-tarea-ubicacion")
+        pd.wait_for_function("!document.getElementById('btn-tarea-ubicacion').disabled", timeout=12000)
+        msg_t = pd.inner_text("#tarea-ubicacion-estado")
+        pd.screenshot(path=str(CAPTURAS / "25-tarea-ubicacion-denegada.png"))
+        pd.uncheck("#tarea-aviso")
+        pd.click("#btn-guardar-tarea")
+        esperar_tarjeta(pd, "Tarea sin ubicación")
+        sin_ub = [t for t in tareas_srv() if t["titulo"] == "Tarea sin ubicación"]
+        prueba("T6", "Denegar la geolocalización: la aplicación sigue permitiendo registrar tareas sin ubicación",
+               ("denegado" in msg_t or "No se pudo" in msg_t) and len(sin_ub) == 1 and "ubicacion" not in sin_ub[0],
+               f"mensaje='{msg_t}'")
+        ctx_d.close()
+
         prueba("P9", "Sin errores de JavaScript no controlados durante las pruebas", not errores_consola, "; ".join(errores_consola))
-        navegador.close()
+        navegador.close(); navegador_notif.close()
 finally:
     detener_servidor()
 

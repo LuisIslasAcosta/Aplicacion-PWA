@@ -1,0 +1,3 @@
+# Netlify: el servidor Flask (API) vive en Render; se reenvían las llamadas /api/* para que la PWA
+# siga usando rutas relativas (mismo origen, sin CORS) en el sitio publicado.
+/api/*  https://aplicacion-pwa.onrender.com/api/:splat  200

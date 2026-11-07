@@ -1,4 +1,4 @@
-"""Servidor de Consulta Académica PWA (Actividades 08 y 10).
+"""Servidor de Consulta Académica PWA (Actividades 08, 10 y 12).
 
 - Sirve la PWA estática desde ../public
 - API REST:
@@ -7,6 +7,11 @@
     POST /api/materias  -> registra una materia. IDEMPOTENTE por `uid`:
                            si el uid ya existe responde 200 {duplicado: true}
                            y NO crea otro registro (evita duplicados en reintentos).
+    GET  /api/tareas    -> tareas registradas (Actividad 12)
+    POST /api/tareas    -> crea o ACTUALIZA una tarea. Idempotente por `uid`:
+                           - uid nuevo                      -> 201, la crea
+                           - uid existente y más reciente   -> 200, la actualiza (gana la última edición)
+                           - uid existente, misma o más vieja -> 200 {duplicado: true}, no cambia nada
 """
 import json
 import os
@@ -22,29 +27,39 @@ RAIZ = Path(__file__).resolve().parent
 PUBLICO = RAIZ.parent / "public"
 SEMILLA = PUBLICO / "data" / "materias.json"
 ARCHIVO_DB = Path(os.environ.get("MATERIAS_DB", RAIZ / "db.json"))
+ARCHIVO_TAREAS = Path(os.environ.get("TAREAS_DB", RAIZ / "tareas.json"))
 
 UID_VALIDO = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 CAMPOS_TEXTO = ("nombre", "clave", "docente", "horario", "salon", "autor")
+ESTADOS_TAREA = ("pendiente", "completada")
 
 app = Flask(__name__, static_folder=None)
 candado = threading.Lock()  # serializa lecturas/escrituras del archivo
 
 
-def leer_registradas():
-    if not ARCHIVO_DB.exists():
+def leer_json(archivo):
+    if not archivo.exists():
         return []
     try:
-        return json.loads(ARCHIVO_DB.read_text(encoding="utf-8"))
+        return json.loads(archivo.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return []
 
 
-def guardar_registradas(lista):
+def guardar_json(archivo, lista):
     # Escritura atómica: archivo temporal + reemplazo
-    fd, ruta = tempfile.mkstemp(dir=ARCHIVO_DB.parent, suffix=".tmp")
+    fd, ruta = tempfile.mkstemp(dir=archivo.parent, suffix=".tmp")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(lista, f, ensure_ascii=False, indent=2)
-    os.replace(ruta, ARCHIVO_DB)
+    os.replace(ruta, archivo)
+
+
+def leer_registradas():
+    return leer_json(ARCHIVO_DB)
+
+
+def guardar_registradas(lista):
+    guardar_json(ARCHIVO_DB, lista)
 
 
 def catalogo_base():
@@ -111,6 +126,62 @@ def validar(d):
     return limpia, None
 
 
+def fecha_iso(texto):
+    """Convierte un texto ISO 8601 (con o sin Z) a datetime con zona; None si no es válido."""
+    if not isinstance(texto, str):
+        return None
+    try:
+        f = datetime.fromisoformat(texto.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return f if f.tzinfo else f.replace(tzinfo=timezone.utc)
+
+
+def validar_tarea(d):
+    """Devuelve (tarea_limpia, error)."""
+    if not isinstance(d, dict):
+        return None, "Cuerpo JSON inválido"
+    uid = d.get("uid")
+    if not isinstance(uid, str) or not UID_VALIDO.match(uid):
+        return None, "uid requerido (8-64 caracteres alfanuméricos, - o _)"
+    titulo = d.get("titulo")
+    if not isinstance(titulo, str) or not titulo.strip():
+        return None, "Campo requerido: titulo"
+    descripcion = d.get("descripcion", "")
+    if descripcion is None:
+        descripcion = ""
+    if not isinstance(descripcion, str):
+        return None, "descripcion debe ser texto"
+    limite = d.get("fechaLimite")
+    try:
+        datetime.strptime(limite, "%Y-%m-%d")
+    except (TypeError, ValueError):
+        return None, "fechaLimite requerida con formato AAAA-MM-DD"
+    estado = d.get("estado", "pendiente")
+    if estado not in ESTADOS_TAREA:
+        return None, "estado debe ser pendiente o completada"
+    ahora = datetime.now(timezone.utc).isoformat()
+    actualizado = d.get("actualizadoEn") or ahora
+    if fecha_iso(actualizado) is None:
+        return None, "actualizadoEn inválido (se espera fecha ISO 8601)"
+    limpia = {
+        "uid": uid,
+        "titulo": titulo.strip()[:120],
+        "descripcion": descripcion.strip()[:1000],
+        "fechaLimite": limite,
+        "estado": estado,
+        "creadoEn": d.get("creadoEn") if fecha_iso(d.get("creadoEn")) else actualizado,
+        "actualizadoEn": actualizado,
+    }
+    ubicacion = d.get("ubicacion")
+    if ubicacion is not None:  # opcional: la tarea puede registrarse sin ubicación
+        limpia_u, error_u = validar_ubicacion(ubicacion)
+        if error_u:
+            return None, error_u
+        limpia["ubicacion"] = limpia_u
+    return limpia, None
+
+
 @app.get("/api/health")
 def salud():
     return jsonify(ok=True), 200, {"Cache-Control": "no-store"}
@@ -137,6 +208,39 @@ def crear():
         registradas.append(materia)
         guardar_registradas(registradas)
     return jsonify(materia=materia, duplicado=False), 201
+
+
+@app.get("/api/tareas")
+def listar_tareas():
+    with candado:
+        tareas = leer_json(ARCHIVO_TAREAS)
+    return jsonify(tareas), 200, {"Cache-Control": "no-store"}
+
+
+@app.post("/api/tareas")
+def guardar_tarea():
+    tarea, error = validar_tarea(request.get_json(silent=True))
+    if error:
+        return jsonify(error=error), 400
+    with candado:
+        tareas = leer_json(ARCHIVO_TAREAS)
+        indice = next((i for i, t in enumerate(tareas) if t["uid"] == tarea["uid"]), None)
+        if indice is None:  # tarea nueva
+            tarea["recibidoEn"] = datetime.now(timezone.utc).isoformat()
+            tareas.append(tarea)
+            guardar_json(ARCHIVO_TAREAS, tareas)
+            return jsonify(tarea=tarea, duplicado=False), 201
+        existente = tareas[indice]
+        if fecha_iso(tarea["actualizadoEn"]) > fecha_iso(existente["actualizadoEn"]):
+            # edición más reciente: gana la última edición
+            tarea["creadoEn"] = existente.get("creadoEn", tarea["creadoEn"])
+            tarea["recibidoEn"] = existente.get("recibidoEn")
+            tarea["actualizadoRecibidoEn"] = datetime.now(timezone.utc).isoformat()
+            tareas[indice] = tarea
+            guardar_json(ARCHIVO_TAREAS, tareas)
+            return jsonify(tarea=tarea, duplicado=False, actualizada=True), 200
+        # reintento (misma versión) o versión más vieja: no se cambia nada
+        return jsonify(tarea=existente, duplicado=True), 200
 
 
 @app.get("/")

@@ -1,0 +1,15 @@
+# Configuración de publicación en Netlify (Actividad 14)
+[build]
+  publish = "public"      # carpeta que se publica; no hay paso de compilación (sitio estático)
+
+# El Service Worker y el manifest nunca deben quedar en la caché HTTP del navegador/CDN:
+# así una versión nueva de sw.js se detecta de inmediato al abrir la app.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache"

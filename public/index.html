@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Consulta Académica PWA: consulta materias, horarios y docentes, y registra materias y tareas aun sin conexión; se sincronizan al reconectar.">
   <title>Consulta Académica PWA</title>
   <meta name="theme-color" content="#1d4ed8">
   <link rel="manifest" href="manifest.json">
@@ -37,6 +38,7 @@
     <a href="#inicio" data-vista="inicio">Inicio</a>
     <a href="#materias" data-vista="materias">Materias</a>
     <a href="#agregar" data-vista="agregar">Agregar materia</a>
+    <a href="#tareas" data-vista="tareas">Tareas</a>
     <a href="#avisos" data-vista="avisos">Avisos</a>
   </nav>
 
@@ -55,10 +57,12 @@
       </div>
       <p class="resumen">Última sincronización: <span id="st-ultima">nunca</span></p>
       <p id="resumen" class="resumen"></p>
+      <p id="resumen-tareas" class="resumen"></p>
 
       <div class="acciones">
         <button class="boton" data-ir="materias">Ver materias</button>
         <button class="boton secundario" data-ir="agregar">Agregar materia</button>
+        <button class="boton secundario" data-ir="tareas">Ver tareas</button>
         <button id="btn-sync" class="boton secundario" data-requiere-conexion="Sincronizar">Sincronizar ahora</button>
       </div>
     </section>
@@ -101,6 +105,55 @@
       </form>
     </section>
 
+    <!-- ===== TAREAS (Actividad 12) ===== -->
+    <section id="vista-tareas" class="vista" data-vista="tareas" hidden>
+      <h2>Tareas</h2>
+      <p id="tareas-estado" class="estado-tareas" role="status">-</p>
+      <p id="tareas-urgentes" class="aviso-urgente" role="alert" hidden></p>
+      <p id="tareas-resumen" class="resumen"></p>
+      <div class="acciones">
+        <button id="btn-nueva-tarea" class="boton" type="button">＋ Nueva tarea</button>
+      </div>
+      <label class="filtro">Mostrar
+        <select id="filtro-tareas">
+          <option value="todas">Todas</option>
+          <option value="pendientes">Pendientes</option>
+          <option value="completadas">Completadas</option>
+        </select>
+      </label>
+      <div id="lista-tareas" class="lista"></div>
+    </section>
+
+    <section id="vista-tarea" class="vista" data-vista="tarea" hidden>
+      <h2 id="titulo-form-tarea">Nueva tarea</h2>
+      <p class="resumen">Se guarda primero en este dispositivo (IndexedDB) y se envía al servidor cuando hay conexión.</p>
+      <form id="form-tarea" class="formulario">
+        <label>Título <input name="titulo" maxlength="120" required></label>
+        <label>Descripción <textarea name="descripcion" rows="3" maxlength="1000"></textarea></label>
+        <label>Fecha límite <input name="fechaLimite" type="date" required></label>
+        <label>Estado
+          <select name="estado">
+            <option value="pendiente">Pendiente</option>
+            <option value="completada">Completada</option>
+          </select>
+        </label>
+
+        <fieldset class="ubicacion-campo">
+          <legend>Lugar de la tarea (opcional)</legend>
+          <p class="resumen">Al pulsar el botón el navegador te pedirá permiso para usar tu ubicación. Si lo niegas, la tarea se guarda igual, sin ubicación.</p>
+          <button id="btn-tarea-ubicacion" class="boton secundario" type="button">📍 Usar mi ubicación</button>
+          <button id="btn-quitar-tarea-ubicacion" class="boton secundario" type="button" hidden>Quitar</button>
+          <p id="tarea-ubicacion-estado" class="resumen" role="status" aria-live="polite"></p>
+        </fieldset>
+
+        <label class="casilla"><input id="tarea-aviso" type="checkbox" checked> Avisarme con una notificación al guardar</label>
+        <div class="acciones">
+          <button id="btn-guardar-tarea" class="boton" type="submit">Guardar tarea</button>
+          <button id="btn-cancelar-tarea" class="boton secundario" type="button">Cancelar</button>
+        </div>
+      </form>
+    </section>
+
     <section id="vista-avisos" class="vista" data-vista="avisos" hidden>
       <h2>Avisos</h2>
       <p>Permiso de notificaciones: <strong id="permiso-estado">-</strong></p>
@@ -126,18 +179,20 @@
     <a href="#inicio" data-vista="inicio"><span>Inicio</span></a>
     <a href="#materias" data-vista="materias"><span>Materias</span></a>
     <a href="#agregar" data-vista="agregar"><span>Agregar</span></a>
+    <a href="#tareas" data-vista="tareas"><span>Tareas</span></a>
     <a href="#avisos" data-vista="avisos"><span>Avisos</span></a>
   </nav>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <footer class="pie">
-    Consulta Académica PWA · v3 · <span id="anio"></span>
+    Consulta Académica PWA · v4 · <span id="anio"></span>
   </footer>
 
   <script src="db.js"></script>
   <script src="sync.js"></script>
   <script src="ubicacion.js"></script>
+  <script src="tareas.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
