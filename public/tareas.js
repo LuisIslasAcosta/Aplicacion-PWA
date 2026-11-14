@@ -10,6 +10,7 @@
   const $ = id => document.getElementById(id); // propio del módulo (no depende del $ de app.js)
   let lista = [];          // copia en memoria de IndexedDB
   let filtro = "todas";    // todas | pendientes | completadas
+  let busqueda = "";       // v1.1.0: texto del buscador (ya normalizado)
   let editando = null;     // uid de la tarea en edición, o null si es nueva
   let ubicacion = null;    // { lat, lon, precision, tomadoEn } o null
 
@@ -46,6 +47,11 @@
     const p = prioridadDe(t);
     return `<span class="etiqueta prioridad-${p}">Prioridad ${p}</span>`;
   }
+
+  // ---------- Búsqueda (v1.1.0) ----------
+  // Sin distinguir mayúsculas ni acentos: "practica" encuentra "Práctica".
+  const normalizar = texto => (texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const coincide = t => !busqueda || normalizar(`${t.titulo} ${t.descripcion || ""}`).includes(busqueda);
 
   function porAtender() { // pendientes vencidas o que vencen hoy
     return lista.filter(t => t.estado === "pendiente" && diasHasta(t.fechaLimite) <= 0);
@@ -98,7 +104,8 @@
     const cont = $("lista-tareas");
     if (!cont) return;
     const visibles = lista.filter(t =>
-      filtro === "todas" || (filtro === "pendientes" ? t.estado === "pendiente" : t.estado === "completada"));
+      (filtro === "todas" || (filtro === "pendientes" ? t.estado === "pendiente" : t.estado === "completada")) &&
+      coincide(t));
     cont.innerHTML = visibles.map(t => {
       const v = vencimiento(t);
       const u = t.ubicacion;
@@ -117,7 +124,9 @@
           <button class="boton secundario" data-accion="completar" type="button">${t.estado === "completada" ? "Reabrir" : "Completar"}</button>
         </div>
       </article>`;
-    }).join("") || "<p>No hay tareas en esta lista.</p>";
+    }).join("") || (busqueda
+      ? `<p>No hay tareas que coincidan con «${escapar($("buscar-tareas").value.trim())}».</p>`
+      : "<p>No hay tareas en esta lista.</p>");
 
     const urgentes = porAtender();
     const aviso = $("tareas-urgentes");
@@ -292,6 +301,7 @@
     $("btn-cancelar-tarea").addEventListener("click", () => { editando = null; location.hash = "tareas"; });
     $("lista-tareas").addEventListener("click", accionTarjeta);
     $("filtro-tareas").addEventListener("change", e => { filtro = e.target.value; pintar(); });
+    $("buscar-tareas").addEventListener("input", e => { busqueda = normalizar(e.target.value); pintar(); });
     $("btn-tarea-ubicacion").addEventListener("click", usarUbicacion);
     $("btn-quitar-tarea-ubicacion").addEventListener("click", () => {
       ubicacion = null;
