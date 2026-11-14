@@ -23,7 +23,7 @@ Versiones con [Versionado Semántico](https://semver.org/lang/es/) y etiquetas g
 | `VERSION` del Service Worker `v1.1.0` y versión visible en el pie | `public/sw.js`, `public/index.html` |
 
 Validación de la versión candidata (de v1.0.0 instalada a v1.1.0, con datos conservados): `python3 tests/validacion_v1_1_0.py` → `docs/capturas15/`.
-**Orden de despliegue:** primero Render (API) y después Netlify (frontend). La reversión se describe en el documento técnico de la Actividad 15.
+**Publicada en Render** (PWA + API en un solo servicio): https://aplicacion-pwa.onrender.com/ · La reversión se describe en el documento técnico de la Actividad 15 (Render → *Rollback*).
 
 ## Módulo de tareas (Actividad 12, v4)
 Pantalla **Tareas** (`#tareas`) y formulario (`#tarea`) para crear y editar tareas con fecha límite, ubicación opcional y avisos locales.

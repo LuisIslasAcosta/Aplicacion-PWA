@@ -38,11 +38,15 @@ Versión candidata validada: `v1.1.0-rc.1` (14/14 pruebas en `tests/validacion_v
   tal cual y se muestran como prioridad «media» hasta que el usuario las edite.
 - Los clientes que todavía tengan la v1.0.0 pueden seguir enviando tareas sin prioridad: el servidor
   les asigna «media».
-- **Orden de despliegue:** primero el backend (Render) y después el frontend (Netlify). Si solo se publica
-  el frontend, el servidor anterior descarta la prioridad sin marcar error.
+- **Publicación:** la PWA y la API se publican juntas en Render (`https://aplicacion-pwa.onrender.com/`) con
+  `python3 server/app.py`, así que el frontend nuevo nunca queda con una API anterior. Si en el futuro se
+  separan (por ejemplo, con `netlify.toml`), hay que desplegar primero la API: el servidor v1.0.0 descarta la
+  prioridad sin marcar error.
+- **Datos del servidor en Render:** el disco del servicio no es persistente, así que `tareas.json` y `db.json`
+  se reinician en cada despliegue. Los datos de los usuarios no se pierden porque viven en su IndexedDB.
 
 ## [1.0.0] - 2026-11-07
-Primera versión publicada: es la línea base de las Actividades 08 a 14 (Netlify + Render).
+Primera versión publicada en Render: es la línea base de las Actividades 08 a 14.
 
 ### Agregado
 - Consulta de materias, horarios y docentes, y registro de materias sin conexión con IndexedDB.
@@ -50,7 +54,7 @@ Primera versión publicada: es la línea base de las Actividades 08 a 14 (Netlif
 - Ciclo de vida del Service Worker con aviso «Hay una nueva versión» y botón **Actualizar**.
 - Notificaciones locales y geolocalización en materias y tareas.
 - Módulo de tareas con fecha límite, estado, ubicación opcional y avisos de vencimiento.
-- Encabezados `Cache-Control: no-cache` para `sw.js` y `manifest.json` en Netlify.
+- `sw.js` se sirve con `Cache-Control: no-cache` para detectar versiones nuevas de inmediato.
 
 [Sin publicar]: https://github.com/LuisIslasAcosta/Aplicacion-PWA/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/LuisIslasAcosta/Aplicacion-PWA/compare/v1.0.0...v1.1.0
