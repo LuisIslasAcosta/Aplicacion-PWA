@@ -179,6 +179,11 @@ body.cargando { overflow: hidden; }
 .etiqueta.pendiente { background: #fef3c7; color: #92400e; }
 .etiqueta.sincronizado { background: #dcfce7; color: #166534; }
 .etiqueta.error { background: #fee2e2; color: #991b1b; }
+/* v1.1.0: prioridad de las tareas */
+.etiqueta.prioridad-alta { background: #fee2e2; color: #991b1b; }
+.etiqueta.prioridad-media { background: #e0e7ff; color: #3730a3; }
+.etiqueta.prioridad-baja { background: #f1f5f9; color: #475569; }
+.tarea[data-prioridad="alta"] { border-left: 4px solid #dc2626; }
 .tarjeta[data-estado="pendiente"] { border-left: 4px solid #f59e0b; }
 
 /* ===== Aviso (toast) ===== */

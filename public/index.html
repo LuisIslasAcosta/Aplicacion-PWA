@@ -131,6 +131,13 @@
         <label>Título <input name="titulo" maxlength="120" required></label>
         <label>Descripción <textarea name="descripcion" rows="3" maxlength="1000"></textarea></label>
         <label>Fecha límite <input name="fechaLimite" type="date" required></label>
+        <label>Prioridad
+          <select name="prioridad">
+            <option value="alta">Alta</option>
+            <option value="media" selected>Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </label>
         <label>Estado
           <select name="estado">
             <option value="pendiente">Pendiente</option>

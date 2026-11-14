@@ -37,6 +37,16 @@
     if (dias <= 3) return { texto: `Vence en ${dias} días`, clase: "pronto" };
     return { texto: `Vence el ${formatoFecha(t.fechaLimite)}`, clase: "normal" };
   }
+  // ---------- Prioridad (v1.1.0) ----------
+  // Las tareas creadas en v1.0.0 no tienen prioridad: se tratan como "media" SIN reescribirlas,
+  // así los datos guardados en IndexedDB se conservan tal cual tras la actualización.
+  const PESO_PRIORIDAD = { alta: 0, media: 1, baja: 2 };
+  const prioridadDe = t => (t.prioridad in PESO_PRIORIDAD ? t.prioridad : "media");
+  function etiquetaPrioridad(t) {
+    const p = prioridadDe(t);
+    return `<span class="etiqueta prioridad-${p}">Prioridad ${p}</span>`;
+  }
+
   function porAtender() { // pendientes vencidas o que vencen hoy
     return lista.filter(t => t.estado === "pendiente" && diasHasta(t.fechaLimite) <= 0);
   }
@@ -45,6 +55,7 @@
   async function cargar() {
     lista = (await Almacen.todasTareas()).sort((a, b) =>
       (a.estado === "completada") - (b.estado === "completada") ||
+      PESO_PRIORIDAD[prioridadDe(a)] - PESO_PRIORIDAD[prioridadDe(b)] ||   // v1.1.0: alta primero
       a.fechaLimite.localeCompare(b.fechaLimite) || a.creadoEn.localeCompare(b.creadoEn));
     pintar();
   }
@@ -91,8 +102,8 @@
     cont.innerHTML = visibles.map(t => {
       const v = vencimiento(t);
       const u = t.ubicacion;
-      return `<article class="tarjeta tarea" data-uid="${escapar(t.uid)}" data-estado="${t.sync}" data-tarea="${t.estado}">
-        <h3>${escapar(t.titulo)} ${etiquetaSync(t)}</h3>
+      return `<article class="tarjeta tarea" data-uid="${escapar(t.uid)}" data-estado="${t.sync}" data-tarea="${t.estado}" data-prioridad="${prioridadDe(t)}">
+        <h3>${escapar(t.titulo)} ${etiquetaPrioridad(t)} ${etiquetaSync(t)}</h3>
         <p class="dato"><span class="venc ${v.clase}">${v.texto}</span> · Fecha límite: ${formatoFecha(t.fechaLimite)}</p>
         ${u ? `<p class="dato">📍 ${Number(u.lat).toFixed(5)}, ${Number(u.lon).toFixed(5)}${u.precision ? ` (±${Number(u.precision)} m)` : ""}
           <a class="enlace-mapa${navigator.onLine ? "" : " sin-red"}" data-requiere-conexion="Ver en mapa" href="${escapar(Ubicacion.enlaceMapa(u))}" target="_blank" rel="noopener">Ver en mapa</a></p>`
@@ -159,6 +170,7 @@
       form.elements.descripcion.value = t.descripcion || "";
       form.elements.fechaLimite.value = t.fechaLimite;
       form.elements.estado.value = t.estado;
+      form.elements.prioridad.value = prioridadDe(t);
       if (t.ubicacion) {
         ubicacion = t.ubicacion;
         mostrarUbicacion(`Ubicación guardada: ${t.ubicacion.lat}, ${t.ubicacion.lon}.`);
@@ -186,6 +198,7 @@
         descripcion: datos.get("descripcion").trim(),
         fechaLimite: datos.get("fechaLimite"),
         estado: datos.get("estado"),
+        prioridad: datos.get("prioridad") || "media",
         creadoEn: previa ? previa.creadoEn : ahora,
         actualizadoEn: ahora,
         sync: "pendiente",                              // cambio pendiente de enviar
