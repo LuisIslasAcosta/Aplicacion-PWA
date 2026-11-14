@@ -10,6 +10,7 @@
   const $ = id => document.getElementById(id); // propio del módulo (no depende del $ de app.js)
   let lista = [];          // copia en memoria de IndexedDB
   let filtro = "todas";    // todas | pendientes | completadas
+  let busqueda = "";       // v1.1.0: texto del buscador (ya normalizado)
   let editando = null;     // uid de la tarea en edición, o null si es nueva
   let ubicacion = null;    // { lat, lon, precision, tomadoEn } o null
 
@@ -37,6 +38,21 @@
     if (dias <= 3) return { texto: `Vence en ${dias} días`, clase: "pronto" };
     return { texto: `Vence el ${formatoFecha(t.fechaLimite)}`, clase: "normal" };
   }
+  // ---------- Prioridad (v1.1.0) ----------
+  // Las tareas creadas en v1.0.0 no tienen prioridad: se tratan como "media" SIN reescribirlas,
+  // así los datos guardados en IndexedDB se conservan tal cual tras la actualización.
+  const PESO_PRIORIDAD = { alta: 0, media: 1, baja: 2 };
+  const prioridadDe = t => (t.prioridad in PESO_PRIORIDAD ? t.prioridad : "media");
+  function etiquetaPrioridad(t) {
+    const p = prioridadDe(t);
+    return `<span class="etiqueta prioridad-${p}">Prioridad ${p}</span>`;
+  }
+
+  // ---------- Búsqueda (v1.1.0) ----------
+  // Sin distinguir mayúsculas ni acentos: "practica" encuentra "Práctica".
+  const normalizar = texto => (texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const coincide = t => !busqueda || normalizar(`${t.titulo} ${t.descripcion || ""}`).includes(busqueda);
+
   function porAtender() { // pendientes vencidas o que vencen hoy
     return lista.filter(t => t.estado === "pendiente" && diasHasta(t.fechaLimite) <= 0);
   }
@@ -45,6 +61,7 @@
   async function cargar() {
     lista = (await Almacen.todasTareas()).sort((a, b) =>
       (a.estado === "completada") - (b.estado === "completada") ||
+      PESO_PRIORIDAD[prioridadDe(a)] - PESO_PRIORIDAD[prioridadDe(b)] ||   // v1.1.0: alta primero
       a.fechaLimite.localeCompare(b.fechaLimite) || a.creadoEn.localeCompare(b.creadoEn));
     pintar();
   }
@@ -87,12 +104,13 @@
     const cont = $("lista-tareas");
     if (!cont) return;
     const visibles = lista.filter(t =>
-      filtro === "todas" || (filtro === "pendientes" ? t.estado === "pendiente" : t.estado === "completada"));
+      (filtro === "todas" || (filtro === "pendientes" ? t.estado === "pendiente" : t.estado === "completada")) &&
+      coincide(t));
     cont.innerHTML = visibles.map(t => {
       const v = vencimiento(t);
       const u = t.ubicacion;
-      return `<article class="tarjeta tarea" data-uid="${escapar(t.uid)}" data-estado="${t.sync}" data-tarea="${t.estado}">
-        <h3>${escapar(t.titulo)} ${etiquetaSync(t)}</h3>
+      return `<article class="tarjeta tarea" data-uid="${escapar(t.uid)}" data-estado="${t.sync}" data-tarea="${t.estado}" data-prioridad="${prioridadDe(t)}">
+        <h3>${escapar(t.titulo)} ${etiquetaPrioridad(t)} ${etiquetaSync(t)}</h3>
         <p class="dato"><span class="venc ${v.clase}">${v.texto}</span> · Fecha límite: ${formatoFecha(t.fechaLimite)}</p>
         ${u ? `<p class="dato">📍 ${Number(u.lat).toFixed(5)}, ${Number(u.lon).toFixed(5)}${u.precision ? ` (±${Number(u.precision)} m)` : ""}
           <a class="enlace-mapa${navigator.onLine ? "" : " sin-red"}" data-requiere-conexion="Ver en mapa" href="${escapar(Ubicacion.enlaceMapa(u))}" target="_blank" rel="noopener">Ver en mapa</a></p>`
@@ -106,7 +124,9 @@
           <button class="boton secundario" data-accion="completar" type="button">${t.estado === "completada" ? "Reabrir" : "Completar"}</button>
         </div>
       </article>`;
-    }).join("") || "<p>No hay tareas en esta lista.</p>";
+    }).join("") || (busqueda
+      ? `<p>No hay tareas que coincidan con «${escapar($("buscar-tareas").value.trim())}».</p>`
+      : "<p>No hay tareas en esta lista.</p>");
 
     const urgentes = porAtender();
     const aviso = $("tareas-urgentes");
@@ -159,6 +179,7 @@
       form.elements.descripcion.value = t.descripcion || "";
       form.elements.fechaLimite.value = t.fechaLimite;
       form.elements.estado.value = t.estado;
+      form.elements.prioridad.value = prioridadDe(t);
       if (t.ubicacion) {
         ubicacion = t.ubicacion;
         mostrarUbicacion(`Ubicación guardada: ${t.ubicacion.lat}, ${t.ubicacion.lon}.`);
@@ -186,6 +207,7 @@
         descripcion: datos.get("descripcion").trim(),
         fechaLimite: datos.get("fechaLimite"),
         estado: datos.get("estado"),
+        prioridad: datos.get("prioridad") || "media",
         creadoEn: previa ? previa.creadoEn : ahora,
         actualizadoEn: ahora,
         sync: "pendiente",                              // cambio pendiente de enviar
@@ -279,6 +301,7 @@
     $("btn-cancelar-tarea").addEventListener("click", () => { editando = null; location.hash = "tareas"; });
     $("lista-tareas").addEventListener("click", accionTarjeta);
     $("filtro-tareas").addEventListener("change", e => { filtro = e.target.value; pintar(); });
+    $("buscar-tareas").addEventListener("input", e => { busqueda = normalizar(e.target.value); pintar(); });
     $("btn-tarea-ubicacion").addEventListener("click", usarUbicacion);
     $("btn-quitar-tarea-ubicacion").addEventListener("click", () => {
       ubicacion = null;

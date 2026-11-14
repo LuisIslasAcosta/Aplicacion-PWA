@@ -1,7 +1,9 @@
-// ===== Service Worker - Consulta Académica PWA (v6, Actividad 14) =====
+// ===== Service Worker - Consulta Académica PWA (v1.1.0, Actividad 16) =====
 importScripts("db.js", "sync.js");
 
-const VERSION = "v6";
+// Versión semántica de la app. Cambiarla en cada liberación hace que el navegador detecte
+// un sw.js distinto, instale la versión nueva y borre las cachés de la anterior.
+const VERSION = "v1.1.0";
 const CACHE_SHELL = `consulta-shell-${VERSION}`;
 const CACHE_DATOS = `consulta-datos-${VERSION}`;
 

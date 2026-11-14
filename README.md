@@ -1,4 +1,4 @@
-# Consulta Académica PWA (Actividades 08, 10 y 12)
+# Consulta Académica PWA (Actividades 08 a 15) · v1.1.0
 
 PWA para consultar materias, horarios y docentes. Permite **registrar materias sin conexión**
 (IndexedDB) y las **sincroniza con un servidor Flask** al recuperar internet, sin duplicar registros.
@@ -12,6 +12,18 @@ PWA para consultar materias, horarios y docentes. Permite **registrar materias s
 | Notificaciones | `public/app.js`, `public/sw.js` | Notificación local con `registration.showNotification()` (botón de prueba, recordatorio de clase, materia guardada) y notificación desde el SW al terminar una sincronización en segundo plano. Pide permiso al usuario. |
 | Geolocalización | `public/ubicacion.js` | Botón «📍 Usar mi ubicación» en *Agregar materia*; guarda `lat/lon/precisión` y la envía al servidor (se valida en `server/app.py`). Requiere HTTPS o `localhost`. |
 | Diagrama | `docs/diagrama-arquitectura-v3.png` | Componentes implementados. |
+
+## Versión 1.1.0 (Actividad 16: gestión de versiones y liberación controlada)
+Versiones con [Versionado Semántico](https://semver.org/lang/es/) y etiquetas git: `v1.0.0` (versión publicada anterior), `v1.1.0-rc.1` (versión candidata) y `v1.1.0` (liberada). Los cambios están en [`CHANGELOG.md`](CHANGELOG.md).
+
+| Cambio | Dónde |
+|---|---|
+| Prioridad (alta, media, baja) en las tareas; las pendientes se ordenan por prioridad | `public/tareas.js`, `public/index.html`, `public/style.css`, `server/app.py` |
+| Buscador de tareas (sin distinguir mayúsculas ni acentos, funciona offline) | `public/tareas.js`, `public/index.html` |
+| `VERSION` del Service Worker `v1.1.0` y versión visible en el pie | `public/sw.js`, `public/index.html` |
+
+Validación de la versión candidata (de v1.0.0 instalada a v1.1.0, con datos conservados): `python3 tests/validacion_v1_1_0.py` → `docs/capturas16/`.
+**Publicada en Render** (PWA + API en un solo servicio): https://aplicacion-pwa.onrender.com/ · La reversión se describe en el documento técnico de la Actividad 16 (Render → *Rollback*).
 
 ## Módulo de tareas (Actividad 12, v4)
 Pantalla **Tareas** (`#tareas`) y formulario (`#tarea`) para crear y editar tareas con fecha límite, ubicación opcional y avisos locales.

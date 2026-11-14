@@ -32,6 +32,7 @@ ARCHIVO_TAREAS = Path(os.environ.get("TAREAS_DB", RAIZ / "tareas.json"))
 UID_VALIDO = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 CAMPOS_TEXTO = ("nombre", "clave", "docente", "horario", "salon", "autor")
 ESTADOS_TAREA = ("pendiente", "completada")
+PRIORIDADES = ("alta", "media", "baja")  # v1.1.0: prioridad de la tarea
 
 app = Flask(__name__, static_folder=None)
 candado = threading.Lock()  # serializa lecturas/escrituras del archivo
@@ -160,6 +161,10 @@ def validar_tarea(d):
     estado = d.get("estado", "pendiente")
     if estado not in ESTADOS_TAREA:
         return None, "estado debe ser pendiente o completada"
+    # v1.1.0: prioridad opcional. Las tareas de v1.0.0 no la traen y se toman como "media".
+    prioridad = d.get("prioridad") or "media"
+    if prioridad not in PRIORIDADES:
+        return None, "prioridad debe ser alta, media o baja"
     ahora = datetime.now(timezone.utc).isoformat()
     actualizado = d.get("actualizadoEn") or ahora
     if fecha_iso(actualizado) is None:
@@ -170,6 +175,7 @@ def validar_tarea(d):
         "descripcion": descripcion.strip()[:1000],
         "fechaLimite": limite,
         "estado": estado,
+        "prioridad": prioridad,
         "creadoEn": d.get("creadoEn") if fecha_iso(d.get("creadoEn")) else actualizado,
         "actualizadoEn": actualizado,
     }

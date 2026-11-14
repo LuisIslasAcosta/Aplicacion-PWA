@@ -114,6 +114,9 @@
       <div class="acciones">
         <button id="btn-nueva-tarea" class="boton" type="button">＋ Nueva tarea</button>
       </div>
+      <label class="filtro">Buscar
+        <input id="buscar-tareas" type="search" placeholder="Título o descripción" autocomplete="off">
+      </label>
       <label class="filtro">Mostrar
         <select id="filtro-tareas">
           <option value="todas">Todas</option>
@@ -131,6 +134,13 @@
         <label>Título <input name="titulo" maxlength="120" required></label>
         <label>Descripción <textarea name="descripcion" rows="3" maxlength="1000"></textarea></label>
         <label>Fecha límite <input name="fechaLimite" type="date" required></label>
+        <label>Prioridad
+          <select name="prioridad">
+            <option value="alta">Alta</option>
+            <option value="media" selected>Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </label>
         <label>Estado
           <select name="estado">
             <option value="pendiente">Pendiente</option>
@@ -186,7 +196,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <footer class="pie">
-    Consulta Académica PWA · v6 · <span id="anio"></span>
+    Consulta Académica PWA · <span id="version-app">v1.1.0</span> · <span id="anio"></span>
   </footer>
 
   <script src="db.js"></script>
