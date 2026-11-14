@@ -1,4 +1,4 @@
-// ===== Service Worker - Consulta Académica PWA (v1.1.0, Actividad 15) =====
+// ===== Service Worker - Consulta Académica PWA (v1.1.0, Actividad 16) =====
 importScripts("db.js", "sync.js");
 
 // Versión semántica de la app. Cambiarla en cada liberación hace que el navegador detecte

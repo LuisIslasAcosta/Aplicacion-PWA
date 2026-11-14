@@ -1,4 +1,4 @@
-"""Actividad 15 - Validación de la versión candidata v1.1.0 (prioridad + búsqueda de tareas).
+"""Actividad 16 - Validación de la versión candidata v1.1.0 (prioridad + búsqueda de tareas).
 
 Uso:  python3 tests/validacion_v1_1_0.py
 Requiere: pip install playwright flask  y  playwright install chromium
@@ -10,7 +10,7 @@ Simula a un usuario real que tiene instalada la v1.0.0, con datos guardados, y r
   3) Se comprueba la actualización del Service Worker, las cachés, la conservación de IndexedDB,
      la nueva funcionalidad y que las funciones anteriores sigan trabajando (regresión).
 
-Genera: docs/capturas15/*.png  y  docs/capturas15/resultados-validacion.md
+Genera: docs/capturas16/*.png  y  docs/capturas16/resultados-validacion.md
 """
 import json
 import os
@@ -24,7 +24,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 RAIZ = Path(__file__).resolve().parent.parent
-CAP = RAIZ / "docs" / "capturas15"
+CAP = RAIZ / "docs" / "capturas16"
 CAP.mkdir(parents=True, exist_ok=True)
 PUERTO = int(os.environ.get("PORT", 5081))
 BASE = f"http://127.0.0.1:{PUERTO}"

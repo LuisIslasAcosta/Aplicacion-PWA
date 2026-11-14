@@ -13,7 +13,7 @@ PWA para consultar materias, horarios y docentes. Permite **registrar materias s
 | Geolocalización | `public/ubicacion.js` | Botón «📍 Usar mi ubicación» en *Agregar materia*; guarda `lat/lon/precisión` y la envía al servidor (se valida en `server/app.py`). Requiere HTTPS o `localhost`. |
 | Diagrama | `docs/diagrama-arquitectura-v3.png` | Componentes implementados. |
 
-## Versión 1.1.0 (Actividad 15: liberación controlada)
+## Versión 1.1.0 (Actividad 16: gestión de versiones y liberación controlada)
 Versiones con [Versionado Semántico](https://semver.org/lang/es/) y etiquetas git: `v1.0.0` (versión publicada anterior), `v1.1.0-rc.1` (versión candidata) y `v1.1.0` (liberada). Los cambios están en [`CHANGELOG.md`](CHANGELOG.md).
 
 | Cambio | Dónde |
@@ -22,8 +22,8 @@ Versiones con [Versionado Semántico](https://semver.org/lang/es/) y etiquetas g
 | Buscador de tareas (sin distinguir mayúsculas ni acentos, funciona offline) | `public/tareas.js`, `public/index.html` |
 | `VERSION` del Service Worker `v1.1.0` y versión visible en el pie | `public/sw.js`, `public/index.html` |
 
-Validación de la versión candidata (de v1.0.0 instalada a v1.1.0, con datos conservados): `python3 tests/validacion_v1_1_0.py` → `docs/capturas15/`.
-**Publicada en Render** (PWA + API en un solo servicio): https://aplicacion-pwa.onrender.com/ · La reversión se describe en el documento técnico de la Actividad 15 (Render → *Rollback*).
+Validación de la versión candidata (de v1.0.0 instalada a v1.1.0, con datos conservados): `python3 tests/validacion_v1_1_0.py` → `docs/capturas16/`.
+**Publicada en Render** (PWA + API en un solo servicio): https://aplicacion-pwa.onrender.com/ · La reversión se describe en el documento técnico de la Actividad 16 (Render → *Rollback*).
 
 ## Módulo de tareas (Actividad 12, v4)
 Pantalla **Tareas** (`#tareas`) y formulario (`#tarea`) para crear y editar tareas con fecha límite, ubicación opcional y avisos locales.

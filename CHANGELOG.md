@@ -21,7 +21,7 @@ Versión candidata validada: `v1.1.0-rc.1` (14/14 pruebas en `tests/validacion_v
 - Mensaje «No hay tareas que coincidan con…» cuando la búsqueda no encuentra resultados.
 - La API `POST /api/tareas` acepta y guarda el campo `prioridad`.
 - Prueba automatizada de liberación `tests/validacion_v1_1_0.py`: simula a un usuario con la v1.0.0
-  instalada que recibe la v1.1.0. Las evidencias quedan en `docs/capturas15/`.
+  instalada que recibe la v1.1.0. Las evidencias quedan en `docs/capturas16/`.
 
 ### Cambiado
 - La lista de tareas pendientes se ordena primero por prioridad y después por fecha límite.
